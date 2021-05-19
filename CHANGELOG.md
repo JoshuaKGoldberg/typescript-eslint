@@ -3,6 +3,48 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+# [4.24.0](https://github.com/typescript-eslint/typescript-eslint/compare/v4.23.0...v4.24.0) (2021-05-17)
+
+
+### Bug Fixes
+
+* **eslint-plugin:** [no-shadow] fix static class method generics shadowing class generics ([#3393](https://github.com/typescript-eslint/typescript-eslint/issues/3393)) ([b1e1c8a](https://github.com/typescript-eslint/typescript-eslint/commit/b1e1c8a44695a58d29d19cf32ce35a8267bf506f)), closes [#2592](https://github.com/typescript-eslint/typescript-eslint/issues/2592)
+* **eslint-plugin:** [no-unsafe-*] special case handling for the empty map constructor with no generics ([#3394](https://github.com/typescript-eslint/typescript-eslint/issues/3394)) ([cae4f4a](https://github.com/typescript-eslint/typescript-eslint/commit/cae4f4a0f33f8c954b1670d0abcfc8edd6193a06)), closes [#2109](https://github.com/typescript-eslint/typescript-eslint/issues/2109)
+
+
+### Features
+
+* **eslint-plugin:** [dot-notation] optionally allow square bracket notation where an index signature exists in conjunction with `noPropertyAccessFromIndexSignature` ([#3361](https://github.com/typescript-eslint/typescript-eslint/issues/3361)) ([37ec2c2](https://github.com/typescript-eslint/typescript-eslint/commit/37ec2c2264add3e6ce20ac4e02d48644afda3fa8))
+
+
+
+
+
+# [4.23.0](https://github.com/typescript-eslint/typescript-eslint/compare/v4.22.1...v4.23.0) (2021-05-10)
+
+
+### Bug Fixes
+
+* **scope-manager:** fix visiting TSAsExpression in assignment ([#3355](https://github.com/typescript-eslint/typescript-eslint/issues/3355)) ([87521a0](https://github.com/typescript-eslint/typescript-eslint/commit/87521a024103bc5fc643861649bee9a288f55b7b))
+
+
+### Features
+
+* **experimental-utils:** Include `getCwd()` in `RuleContext` type ([#3308](https://github.com/typescript-eslint/typescript-eslint/issues/3308)) ([2b75c11](https://github.com/typescript-eslint/typescript-eslint/commit/2b75c11d69bee88ca0cb77d7efd32b8d0387e6b3))
+* refactor to split AST specification out as its own module ([#2911](https://github.com/typescript-eslint/typescript-eslint/issues/2911)) ([25ea953](https://github.com/typescript-eslint/typescript-eslint/commit/25ea953cc60b118bd385c71e0a9b61c286c26fcf))
+
+
+
+
+
+## [4.22.1](https://github.com/typescript-eslint/typescript-eslint/compare/v4.22.0...v4.22.1) (2021-05-04)
+
+**Note:** Version bump only for package @typescript-eslint/typescript-eslint
+
+
+
+
+
 # [4.22.0](https://github.com/typescript-eslint/typescript-eslint/compare/v4.21.0...v4.22.0) (2021-04-12)
 
 
