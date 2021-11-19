@@ -2987,6 +2987,23 @@
     tslib "^2.0.0"
     yargs-parser "20.0.0"
 
+"@nrwl/tao@13.2.0":
+  version "13.2.0"
+  resolved "https://registry.yarnpkg.com/@nrwl/tao/-/tao-13.2.0.tgz#d153fe3ceea414ff5a5960cbb47c8a5ba1fb4858"
+  integrity sha512-1mxEJ9o3DftTteMaLVcNBewnfkYafm1vHmoWmtaJCFZ85xeYJ8bZQioFFYoRLN0eqWhpkgr8JzKj0VPoqKHrow==
+  dependencies:
+    chalk "4.1.0"
+    enquirer "~2.3.6"
+    fs-extra "^9.1.0"
+    jsonc-parser "3.0.0"
+    nx "13.2.0"
+    rxjs "^6.5.4"
+    rxjs-for-await "0.0.2"
+    semver "7.3.4"
+    tmp "~0.2.1"
+    tslib "^2.3.0"
+    yargs-parser "20.0.0"
+
 "@nrwl/workspace@13.0.2":
   version "13.0.2"
   resolved "https://registry.yarnpkg.com/@nrwl/workspace/-/workspace-13.0.2.tgz#90d970c2053ad69eca28b2664154f6fe522b8729"
@@ -10431,6 +10448,13 @@ nx@13.0.2:
   dependencies:
     "@nrwl/cli" "*"
 
+nx@13.2.0:
+  version "13.2.0"
+  resolved "https://registry.yarnpkg.com/nx/-/nx-13.2.0.tgz#b61894244bfe4f660c2b688c4bd8eccba9bef4b5"
+  integrity sha512-6EmHNwU3wsxfpy57+MQGbMcvrd9CImw3OU2OCW8Ddywi6UVmoVevaHgcxyOsUlaicj/4xU+7Pv5fGt4q1uAjyw==
+  dependencies:
+    "@nrwl/cli" "*"
+
 oauth-sign@~0.9.0:
   version "0.9.0"
   resolved "https://registry.yarnpkg.com/oauth-sign/-/oauth-sign-0.9.0.tgz#47a7b016baa68b5fa0ecf3dee08a85c679ac6455"
@@ -13446,7 +13470,7 @@ tslib@^1.13.0, tslib@^1.8.1, tslib@^1.9.0:
   resolved "https://registry.yarnpkg.com/tslib/-/tslib-1.14.1.tgz#cf2d38bdc34a134bcaf1091c41f6619e2f672d00"
   integrity sha512-Xni35NKzjgMrwevysHTCArtLDpPvye8zV/0E4EyYn43P7/7qvQwPh9BGkHewbMulVntbigmcT7rdX3BNo9wRJg==
 
-tslib@^2, tslib@^2.0.0, tslib@^2.0.3, tslib@^2.3.1:
+tslib@^2, tslib@^2.0.0, tslib@^2.0.3, tslib@^2.3.0, tslib@^2.3.1:
   version "2.3.1"
   resolved "https://registry.yarnpkg.com/tslib/-/tslib-2.3.1.tgz#e8a335add5ceae51aa261d32a490158ef042ef01"
   integrity sha512-77EbyPPpMz+FRFRuAFlWMtmgUWGe9UOG2Z25NqCwiIjRhOf5iKGuzSe5P2w1laq+FkRy4p+PCuVkJSGkzTEKVw==
