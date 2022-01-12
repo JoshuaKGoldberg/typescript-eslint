@@ -62,7 +62,7 @@
     "@commitlint/config-conventional": "^16.0.0",
     "@nrwl/cli": "13.0.2",
     "@nrwl/nx-cloud": "12.5.1",
-    "@nrwl/tao": "13.0.2",
+    "@nrwl/tao": "13.4.4",
     "@nrwl/workspace": "13.0.2",
     "@types/babel__code-frame": "^7.0.3",
     "@types/debug": "^4.1.7",
