@@ -59,7 +59,7 @@
     "@commitlint/config-conventional": "^16.0.0",
     "@nrwl/cli": "13.0.2",
     "@nrwl/nx-cloud": "12.5.1",
-    "@nrwl/tao": "13.0.2",
+    "@nrwl/tao": "13.8.5",
     "@nrwl/workspace": "13.0.2",
     "@swc/core": "^1.2.143",
     "@swc/jest": "^0.2.17",
