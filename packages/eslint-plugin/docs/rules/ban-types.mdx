@@ -15,6 +15,15 @@ It's often a good idea to ban certain types to help with consistency and safety.
 This rule bans specific types and can suggest alternatives.
 Note that it does not ban the corresponding runtime objects from being used.
 
+:::warning
+This rule is being split into [`no-restricted-types`](./no-restricted-types.mdx), [`no-uppercase-alias-types`](./no-uppercase-alias-types.mdx), and (coming in v8) [`no-empty-object-type`](https://v8--typescript-eslint.netlify.app/rules/no-empty-object-type).
+
+We've found that `ban-types` serves two purposes: banning some dangerous built-in types _and_ allowing users to ban their own typeAlias.
+The new `no-empty-object-type` and `no-uppercase-alias-types` rules are more precise and user-friendly for banning the dangerous built-in types.
+
+The current name `no-ban-types` will be deprecated in version 8 of typescript-eslint, and removed in a future major version.
+:::
+
 ## Examples
 
 Examples of code with the default options:
@@ -136,3 +145,8 @@ Example configuration:
 
 If your project is a rare one that intentionally deals with the class equivalents of primitives, it might not be worthwhile to enable the default `ban-types` options.
 You might consider using [ESLint disable comments](https://eslint.org/docs/latest/use/configure/rules#using-configuration-comments-1) for those specific situations instead of completely disabling this rule.
+
+## Related To
+
+- [`no-empty-object-type`](https://v8--typescript-eslint.netlify.app/rules/no-empty-object-type/) (in typescript-eslint@8)
+- [`no-uppercase-alias-types`](./no-uppercase-alias-types.mdx)

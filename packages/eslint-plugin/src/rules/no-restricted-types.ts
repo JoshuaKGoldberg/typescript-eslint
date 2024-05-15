@@ -21,6 +21,7 @@ export type Options = [
     extendDefaults?: boolean;
   },
 ];
+
 export type MessageIds = 'bannedTypeMessage' | 'bannedTypeReplacement';
 
 function removeSpaces(str: string): string {
@@ -37,7 +38,7 @@ function stringifyNode(
 function getCustomMessage(
   bannedType: string | true | { message?: string; fixWith?: string } | null,
 ): string {
-  if (bannedType == null || bannedType === true) {
+  if (!bannedType || bannedType === true) {
     return '';
   }
 
@@ -52,65 +53,7 @@ function getCustomMessage(
   return '';
 }
 
-const defaultTypes: Types = {
-  String: {
-    message: 'Use string instead',
-    fixWith: 'string',
-  },
-  Boolean: {
-    message: 'Use boolean instead',
-    fixWith: 'boolean',
-  },
-  Number: {
-    message: 'Use number instead',
-    fixWith: 'number',
-  },
-  Symbol: {
-    message: 'Use symbol instead',
-    fixWith: 'symbol',
-  },
-  BigInt: {
-    message: 'Use bigint instead',
-    fixWith: 'bigint',
-  },
-
-  Function: {
-    message: [
-      'The `Function` type accepts any function-like value.',
-      'It provides no type safety when calling the function, which can be a common source of bugs.',
-      'It also accepts things like class declarations, which will throw at runtime as they will not be called with `new`.',
-      'If you are expecting the function to accept certain arguments, you should explicitly define the function shape.',
-    ].join('\n'),
-  },
-
-  // object typing
-  Object: {
-    message: [
-      'The `Object` type actually means "any non-nullish value", so it is marginally better than `unknown`.',
-      '- If you want a type meaning "any object", you probably want `object` instead.',
-      '- If you want a type meaning "any value", you probably want `unknown` instead.',
-      '- If you really want a type meaning "any non-nullish value", you probably want `NonNullable<unknown>` instead.',
-    ].join('\n'),
-    suggest: ['object', 'unknown', 'NonNullable<unknown>'],
-  },
-  '{}': {
-    message: [
-      '`{}` actually means "any non-nullish value".',
-      '- If you want a type meaning "any object", you probably want `object` instead.',
-      '- If you want a type meaning "any value", you probably want `unknown` instead.',
-      '- If you want a type meaning "empty object", you probably want `Record<string, never>` instead.',
-      '- If you really want a type meaning "any non-nullish value", you probably want `NonNullable<unknown>` instead.',
-    ].join('\n'),
-    suggest: [
-      'object',
-      'unknown',
-      'Record<string, never>',
-      'NonNullable<unknown>',
-    ],
-  },
-};
-
-export const TYPE_KEYWORDS = {
+const TYPE_KEYWORDS = {
   bigint: AST_NODE_TYPES.TSBigIntKeyword,
   boolean: AST_NODE_TYPES.TSBooleanKeyword,
   never: AST_NODE_TYPES.TSNeverKeyword,
@@ -125,13 +68,11 @@ export const TYPE_KEYWORDS = {
 };
 
 export default createRule<Options, MessageIds>({
-  name: 'ban-types',
+  name: 'no-restricted-types',
   meta: {
     type: 'suggestion',
     docs: {
       description: 'Disallow certain types',
-      // TODO(v8): remove from recommended, for no-uppercase-alias-types
-      recommended: 'recommended',
     },
     fixable: 'code',
     hasSuggestions: true,
@@ -144,16 +85,6 @@ export default createRule<Options, MessageIds>({
         $defs: {
           banConfig: {
             oneOf: [
-              {
-                type: 'null',
-                description: 'Bans the type with the default message',
-              },
-              {
-                type: 'boolean',
-                enum: [false],
-                description:
-                  'Un-bans the type (useful when paired with `extendDefaults`)',
-              },
               {
                 type: 'boolean',
                 enum: [true],
@@ -180,7 +111,6 @@ export default createRule<Options, MessageIds>({
                     type: 'array',
                     items: { type: 'string' },
                     description: 'Types to suggest replacing with.',
-                    additionalItems: false,
                   },
                 },
                 additionalProperties: false,
@@ -196,23 +126,13 @@ export default createRule<Options, MessageIds>({
               $ref: '#/items/0/$defs/banConfig',
             },
           },
-          extendDefaults: {
-            type: 'boolean',
-          },
         },
         additionalProperties: false,
       },
     ],
   },
   defaultOptions: [{}],
-  create(context, [options]) {
-    const extendDefaults = options.extendDefaults ?? true;
-    const customTypes = options.types ?? {};
-    const types = Object.assign(
-      {},
-      extendDefaults ? defaultTypes : {},
-      customTypes,
-    );
+  create(context, [{ types = {} }]) {
     const bannedTypes = new Map(
       Object.entries(types).map(([type, data]) => [removeSpaces(type), data]),
     );
@@ -273,15 +193,19 @@ export default createRule<Options, MessageIds>({
     return {
       ...keywordSelectors,
 
-      TSTypeLiteral(node): void {
-        if (node.members.length) {
-          return;
-        }
-
+      TSClassImplements(node): void {
+        checkBannedTypes(node);
+      },
+      TSInterfaceHeritage(node): void {
         checkBannedTypes(node);
       },
       TSTupleType(node): void {
-        if (node.elementTypes.length === 0) {
+        if (!node.elementTypes.length) {
+          checkBannedTypes(node);
+        }
+      },
+      TSTypeLiteral(node): void {
+        if (node.members.length) {
           checkBannedTypes(node);
         }
       },
@@ -291,12 +215,6 @@ export default createRule<Options, MessageIds>({
         if (node.typeArguments) {
           checkBannedTypes(node);
         }
-      },
-      TSInterfaceHeritage(node): void {
-        checkBannedTypes(node);
-      },
-      TSClassImplements(node): void {
-        checkBannedTypes(node);
       },
     };
   },
