@@ -7,6 +7,8 @@
 
 import type { ClassicConfig } from '@typescript-eslint/utils/ts-eslint';
 
+console.log('Testing change to recommended.ts');
+
 export = {
   extends: ['./configs/base', './configs/eslint-recommended'],
   rules: {
