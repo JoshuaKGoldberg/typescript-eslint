@@ -1,3 +1,5 @@
+import * as path from 'node:path';
+
 import type { MDXPlugin } from '@docusaurus/mdx-loader';
 import type { Options as PluginRedirectOptions } from '@docusaurus/plugin-client-redirects';
 import type { Options as PluginContentDocsOptions } from '@docusaurus/plugin-content-docs';
@@ -322,6 +324,19 @@ const config: Config = {
     ['@docusaurus/plugin-content-docs', pluginContentDocsOptions],
     ['@docusaurus/plugin-pwa', pluginPwaOptions],
     ['@docusaurus/plugin-client-redirects', redirects],
+    [
+      'docusaurus-plugin-typedoc-api',
+      {
+        readmes: true,
+        projectRoot: path.join(__dirname, '../type-utils'),
+        packages: [
+          {
+            path: '.',
+            entry: 'src/index.ts',
+          },
+        ],
+      },
+    ],
   ],
   themeConfig,
   // Misleading API name, but these are just <link> tags
