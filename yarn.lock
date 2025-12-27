@@ -13667,7 +13667,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"make-dir@npm:*, make-dir@npm:^4.0.0":
+"make-dir@npm:^4.0.0":
   version: 4.0.0
   resolution: "make-dir@npm:4.0.0"
   dependencies:
@@ -20532,7 +20532,6 @@ __metadata:
     json5: ^2.2.3
     konamimojisplosion: ^0.5.2
     lz-string: ^1.5.0
-    make-dir: "*"
     mdast-util-from-markdown: ^2.0.1
     mdast-util-mdx: ^3.0.0
     monaco-editor: ~0.54.0
