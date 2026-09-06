@@ -812,7 +812,7 @@ export default createRule({
         );
       },
       'AccessorProperty[value != null]'(
-        node: { value: NonNullable<unknown> } & TSESTree.AccessorProperty,
+        node: { value: object } & TSESTree.AccessorProperty,
       ) {
         if (checkImplementedMemberAssignment(node, node.value, node)) {
           return;
@@ -969,7 +969,7 @@ export default createRule({
         });
       },
       'PropertyDefinition[value != null]'(
-        node: TSESTree.PropertyDefinition & { value: NonNullable<unknown> },
+        node: TSESTree.PropertyDefinition & { value: object },
       ) {
         if (!checkImplementedMemberAssignment(node, node.value, node)) {
           checkAssignmentWithReceiverType(
