@@ -11,7 +11,6 @@ import * as ts from 'typescript';
 
 import {
   createRule,
-  forEachReturnStatement,
   getConstrainedTypeAtLocation,
   getContextualType,
   getDeclaration,
@@ -24,7 +23,6 @@ import {
   nullThrows,
   NullThrowsReasons,
 } from '../util';
-import { getParentFunctionNode } from '../util/getParentFunctionNode';
 
 export type Options = [
   {
@@ -33,14 +31,9 @@ export type Options = [
   },
 ];
 export type MessageIds =
-  | 'assertionProvidesTypeArguments'
+  | 'contextuallyInferredTypeArguments'
   | 'contextuallyUnnecessary'
   | 'unnecessaryAssertion';
-
-type GenericCallLike =
-  | TSESTree.CallExpression
-  | TSESTree.NewExpression
-  | TSESTree.TaggedTemplateExpression;
 
 export default createRule<Options, MessageIds>({
   name: 'no-unnecessary-type-assertion',
@@ -54,8 +47,8 @@ export default createRule<Options, MessageIds>({
     },
     fixable: 'code',
     messages: {
-      assertionProvidesTypeArguments:
-        "This assertion does not change the type of the expression, but only because the generic call's type arguments are inferred from the assertion. Specify the type arguments on the call instead.",
+      contextuallyInferredTypeArguments:
+        'The type arguments for this generic call may be inferred from the assertion. Specify them explicitly instead.',
       contextuallyUnnecessary:
         'This assertion is unnecessary since the receiver accepts the original type of the expression.',
       unnecessaryAssertion:
@@ -523,6 +516,20 @@ export default createRule<Options, MessageIds>({
       return type.getCallSignatures().some(hasTypeParams);
     }
 
+    function isGenericCallWithInferredTypeArguments(
+      expression: TSESTree.Expression,
+    ): boolean {
+      const call =
+        expression.type === AST_NODE_TYPES.AwaitExpression
+          ? expression.argument
+          : expression;
+      return (
+        call.type === AST_NODE_TYPES.CallExpression &&
+        call.typeArguments == null &&
+        hasGenericCallSignature(services.getTypeAtLocation(call.callee))
+      );
+    }
+
     function isArgumentToOverloadedFunction(
       node: TSESTree.TSAsExpression | TSESTree.TSTypeAssertion,
     ): boolean {
@@ -873,477 +880,6 @@ export default createRule<Options, MessageIds>({
       };
     }
 
-    function referencesTypeParameter(
-      type: ts.Type,
-      typeParameter: ts.Type,
-      assumeUnresolved: boolean,
-    ) {
-      const seen = new Set<ts.Type>();
-      const visit = (current: ts.Type, depth: number): boolean => {
-        if (current === typeParameter) {
-          return true;
-        }
-
-        if (seen.has(current)) {
-          return false;
-        }
-
-        seen.add(current);
-
-        const references = (nested: ts.Type) => visit(nested, depth + 1);
-
-        if (current.isUnionOrIntersection()) {
-          return current.types.some(references);
-        }
-
-        if (tsutils.isIndexType(current)) {
-          return references(current.type);
-        }
-
-        if (tsutils.isIndexedAccessType(current)) {
-          return (
-            references(current.objectType) || references(current.indexType)
-          );
-        }
-
-        if (tsutils.isTemplateLiteralType(current)) {
-          return current.types.some(references);
-        }
-
-        if (tsutils.isStringMappingType(current)) {
-          return references(current.type);
-        }
-
-        if (
-          tsutils.isConditionalType(current) ||
-          tsutils.isSubstitutionType(current)
-        ) {
-          return assumeUnresolved;
-        }
-
-        if (getTypeArguments(current).some(references)) {
-          return true;
-        }
-
-        if (
-          !tsutils.isObjectType(current) ||
-          tsutils.isTypeReference(current)
-        ) {
-          return false;
-        }
-
-        if (tsutils.isObjectFlagSet(current, ts.ObjectFlags.Mapped)) {
-          return assumeUnresolved;
-        }
-
-        return (
-          current
-            .getProperties()
-            .some(property => references(checker.getTypeOfSymbol(property))) ||
-          checker
-            .getIndexInfosOfType(current)
-            .some(info => references(info.keyType) || references(info.type)) ||
-          [
-            ...current.getCallSignatures(),
-            ...current.getConstructSignatures(),
-          ].some(
-            signature =>
-              references(checker.getReturnTypeOfSignature(signature)) ||
-              signature
-                .getParameters()
-                .some(parameter =>
-                  references(checker.getTypeOfSymbol(parameter)),
-                ),
-          )
-        );
-      };
-
-      return visit(type, 0);
-    }
-
-    function getDeclaredSignature(
-      call: GenericCallLike,
-      resolvedSignature: ts.Signature,
-    ) {
-      const { declaration } = resolvedSignature;
-      if (declaration != null && ts.isFunctionLike(declaration)) {
-        return checker.getSignatureFromDeclaration(declaration);
-      }
-
-      if (call.type !== AST_NODE_TYPES.NewExpression) {
-        return undefined;
-      }
-
-      const constructSignatures = services
-        .getTypeAtLocation(call.callee)
-        .getConstructSignatures();
-
-      if (constructSignatures.length === 1) {
-        return constructSignatures[0];
-      }
-
-      return undefined;
-    }
-
-    function isDefinitelyInferredFromArguments(
-      typeParameter: ts.Type,
-      declaredSignature: ts.Signature,
-      call: TSESTree.CallExpression | TSESTree.NewExpression,
-    ) {
-      const params = declaredSignature.getParameters();
-      const sharedArgumentsLength = Math.min(
-        call.arguments.length,
-        params.length,
-      );
-
-      for (let index = 0; index < sharedArgumentsLength; index += 1) {
-        const argument = call.arguments[index];
-        const paramType = checker.getTypeOfSymbol(params[index]);
-        if (!referencesTypeParameter(paramType, typeParameter, false)) {
-          continue;
-        }
-
-        if (
-          paramType.isUnion() &&
-          paramType.types.some(
-            part =>
-              !referencesTypeParameter(part, typeParameter, false) &&
-              checker.isTypeAssignableTo(
-                services.getTypeAtLocation(argument),
-                part,
-              ),
-          )
-        ) {
-          continue;
-        }
-
-        if (
-          (argument.type === AST_NODE_TYPES.ArrowFunctionExpression ||
-            argument.type === AST_NODE_TYPES.FunctionExpression) &&
-          argument.params.some(isImplicitlyTypedParameter) &&
-          paramType
-            .getCallSignatures()
-            .some(signature =>
-              signature
-                .getParameters()
-                .some(parameter =>
-                  referencesTypeParameter(
-                    checker.getTypeOfSymbol(parameter),
-                    typeParameter,
-                    false,
-                  ),
-                ),
-            )
-        ) {
-          return false;
-        }
-
-        return (
-          !isTypeFlagSet(
-            services.getTypeAtLocation(argument),
-            ts.TypeFlags.Any,
-          ) && !isContextSensitiveArgument(argument)
-        );
-      }
-
-      return false;
-    }
-
-    function isImplicitlyTypedParameter(param: TSESTree.Parameter): boolean {
-      const pattern =
-        param.type === AST_NODE_TYPES.AssignmentPattern ? param.left : param;
-      return (
-        pattern.type !== AST_NODE_TYPES.TSParameterProperty &&
-        pattern.typeAnnotation == null
-      );
-    }
-
-    /**
-     * Whether a function argument can return a context-sensitive expression:
-     * through its concise body, or through any `return` argument of its block
-     * body (`forEachReturnStatement` doesn't descend into nested functions,
-     * whose returns aren't this function's).
-     */
-    function returnsContextSensitiveExpression(
-      functionNode:
-        TSESTree.ArrowFunctionExpression | TSESTree.FunctionExpression,
-    ): boolean {
-      if (functionNode.body.type !== AST_NODE_TYPES.BlockStatement) {
-        return isContextSensitiveArgument(functionNode.body);
-      }
-      const tsBody = services.esTreeNodeToTSNodeMap.get(functionNode.body);
-      return (
-        forEachReturnStatement(tsBody, statement => {
-          if (statement.expression == null) {
-            return undefined;
-          }
-          const returnedExpression: TSESTree.Expression =
-            services.tsNodeToESTreeNodeMap.get(statement.expression);
-          return isContextSensitiveArgument(returnedExpression) || undefined;
-        }) ?? false
-      );
-    }
-
-    /**
-     * Whether the argument's type may itself depend on the call's contextual
-     * type, in which case it can't anchor the inference of a type parameter.
-     * The contextual type propagates into nested generic calls (e.g.
-     * `Array.from(document.querySelectorAll('.foo')) as Array<HTMLElement>`
-     * infers `HTMLElement` all the way down into `querySelectorAll`), through
-     * the returned expressions of function arguments, and into array and
-     * object literal members.
-     */
-    function isContextSensitiveArgument(
-      argument: TSESTree.CallExpressionArgument,
-    ): boolean {
-      switch (argument.type) {
-        case AST_NODE_TYPES.ArrowFunctionExpression:
-        case AST_NODE_TYPES.FunctionExpression:
-          return returnsContextSensitiveExpression(argument);
-        case AST_NODE_TYPES.ArrayExpression:
-          return argument.elements.some(
-            element => element != null && isContextSensitiveArgument(element),
-          );
-        case AST_NODE_TYPES.ObjectExpression:
-          return argument.properties.some(property => {
-            const value =
-              property.type === AST_NODE_TYPES.SpreadElement
-                ? property.argument
-                : property.value;
-            return (
-              // pattern-only node types can't occur in an object literal
-              value.type !== AST_NODE_TYPES.ArrayPattern &&
-              value.type !== AST_NODE_TYPES.AssignmentPattern &&
-              value.type !== AST_NODE_TYPES.ObjectPattern &&
-              value.type !== AST_NODE_TYPES.TSEmptyBodyFunctionExpression &&
-              isContextSensitiveArgument(value)
-            );
-          });
-        case AST_NODE_TYPES.ConditionalExpression:
-          return (
-            isContextSensitiveArgument(argument.consequent) ||
-            isContextSensitiveArgument(argument.alternate)
-          );
-        case AST_NODE_TYPES.SpreadElement:
-          return isContextSensitiveArgument(argument.argument);
-        default:
-          return isContextSensitiveGenericCall(argument);
-      }
-    }
-
-    /**
-     * Detects when an expression is a generic call whose type arguments
-     * TypeScript may have inferred ("backfilled") from the surrounding
-     * contextual type. When that context is a type assertion, the call's type
-     * is reported as identical to the asserted type even though removing the
-     * assertion would change it, e.g.:
-     *
-     * ```ts
-     * declare const db: { list<T = unknown>(): Promise<Map<string, T>> };
-     * (await db.list()) as Map<string, Uint8Array>;
-     * ```
-     *
-     * Here `T` is inferred as `Uint8Array` from the assertion; without the
-     * assertion it would fall back to `unknown`. Since the rule compares types
-     * after inference has already happened, it can't tell whether the assertion
-     * changes anything — so these cases get a dedicated message suggesting
-     * explicit type arguments (`db.list<Uint8Array>()`) and no auto-fix.
-     *
-     * @see https://github.com/typescript-eslint/typescript-eslint/issues/6951
-     */
-    function isContextSensitiveGenericCall(
-      expression: TSESTree.Expression,
-    ): boolean {
-      let call = expression;
-      // the contextual type flows through these wrappers into the call's
-      // inference
-      while (
-        call.type === AST_NODE_TYPES.AwaitExpression ||
-        call.type === AST_NODE_TYPES.ChainExpression ||
-        call.type === AST_NODE_TYPES.TSNonNullExpression
-      ) {
-        call =
-          call.type === AST_NODE_TYPES.AwaitExpression
-            ? call.argument
-            : call.expression;
-      }
-      // ...and it distributes into branch positions
-      if (call.type === AST_NODE_TYPES.ConditionalExpression) {
-        return (
-          isContextSensitiveGenericCall(call.consequent) ||
-          isContextSensitiveGenericCall(call.alternate)
-        );
-      }
-      if (call.type === AST_NODE_TYPES.LogicalExpression) {
-        if (call.operator !== '??') {
-          return (
-            isContextSensitiveGenericCall(call.left) ||
-            isContextSensitiveGenericCall(call.right)
-          );
-        }
-        // the right operand of `??` re-anchors to the left operand's
-        // non-nullish type when the assertion is removed — unless there is
-        // nothing non-nullish on the left to re-anchor to
-        return (
-          isContextSensitiveGenericCall(call.left) ||
-          (isTypeFlagSet(
-            checker.getNonNullableType(services.getTypeAtLocation(call.left)),
-            ts.TypeFlags.Never,
-          ) &&
-            isContextSensitiveGenericCall(call.right))
-        );
-      }
-      if (
-        call.type !== AST_NODE_TYPES.CallExpression &&
-        call.type !== AST_NODE_TYPES.NewExpression &&
-        call.type !== AST_NODE_TYPES.TaggedTemplateExpression
-      ) {
-        return false;
-      }
-      // explicitly written type arguments can't be inferred from context
-      if (call.typeArguments != null) {
-        return false;
-      }
-      const callee =
-        call.type === AST_NODE_TYPES.TaggedTemplateExpression
-          ? call.tag
-          : call.callee;
-      if (callee.type === AST_NODE_TYPES.TSInstantiationExpression) {
-        return false;
-      }
-
-      const tsCall = services.esTreeNodeToTSNodeMap.get(call);
-      const resolvedSignature = checker.getResolvedSignature(tsCall);
-      if (resolvedSignature == null) {
-        return false;
-      }
-
-      const declaredSignature = getDeclaredSignature(call, resolvedSignature);
-      const typeParameters = declaredSignature?.getTypeParameters();
-      if (declaredSignature == null || !typeParameters?.length) {
-        return false;
-      }
-
-      const declaredReturnType =
-        checker.getReturnTypeOfSignature(declaredSignature);
-      return typeParameters.some(
-        typeParameter =>
-          referencesTypeParameter(declaredReturnType, typeParameter, true) &&
-          (call.type === AST_NODE_TYPES.TaggedTemplateExpression ||
-            !isDefinitelyInferredFromArguments(
-              typeParameter,
-              declaredSignature,
-              call,
-            )),
-      );
-    }
-
-    function getAssertionIndependentContextKind(
-      node: TSESTree.Expression,
-    ): 'async-return' | 'other' | undefined {
-      const { parent } = node;
-      switch (parent.type) {
-        case AST_NODE_TYPES.ArrayExpression:
-          return getAssertionIndependentContextKind(parent) && 'other';
-
-        case AST_NODE_TYPES.ArrowFunctionExpression:
-          if (parent.body !== node || parent.returnType == null) {
-            return undefined;
-          }
-          return parent.async ? 'async-return' : 'other';
-
-        case AST_NODE_TYPES.AssignmentExpression:
-          return parent.right === node ? 'other' : undefined;
-
-        case AST_NODE_TYPES.CallExpression:
-        case AST_NODE_TYPES.NewExpression: {
-          if (!parent.arguments.includes(node)) {
-            return undefined;
-          }
-          if (parent.typeArguments != null) {
-            return 'other';
-          }
-          const calleeType = services
-            .getTypeAtLocation(parent.callee)
-            .getNonNullableType();
-          const signatures =
-            parent.type === AST_NODE_TYPES.CallExpression
-              ? calleeType.getCallSignatures()
-              : calleeType.getConstructSignatures();
-          return signatures.length === 1 && !hasTypeParams(signatures[0])
-            ? 'other'
-            : undefined;
-        }
-
-        case AST_NODE_TYPES.ConditionalExpression:
-          return parent.consequent === node || parent.alternate === node
-            ? getAssertionIndependentContextKind(parent) && 'other'
-            : undefined;
-
-        case AST_NODE_TYPES.Property:
-          return parent.value === node &&
-            parent.parent.type === AST_NODE_TYPES.ObjectExpression
-            ? getAssertionIndependentContextKind(parent.parent) && 'other'
-            : undefined;
-
-        case AST_NODE_TYPES.PropertyDefinition:
-          return parent.value === node && parent.typeAnnotation != null
-            ? 'other'
-            : undefined;
-
-        case AST_NODE_TYPES.ReturnStatement: {
-          const functionNode = getParentFunctionNode(parent);
-          if (functionNode?.returnType == null) {
-            return undefined;
-          }
-          return functionNode.async ? 'async-return' : 'other';
-        }
-
-        case AST_NODE_TYPES.VariableDeclarator:
-          return parent.init === node && parent.id.typeAnnotation != null
-            ? 'other'
-            : undefined;
-        default:
-          return undefined;
-      }
-    }
-
-    function hasEquivalentContextualType(
-      node: TSESTree.TSAsExpression | TSESTree.TSTypeAssertion,
-      castType: ts.Type,
-    ) {
-      const contextKind = getAssertionIndependentContextKind(node);
-      if (contextKind == null) {
-        return false;
-      }
-
-      const contextualType = checker.getContextualType(
-        services.esTreeNodeToTSNodeMap.get(node),
-      );
-
-      if (
-        contextualType == null ||
-        isTypeFlagSet(contextualType, ts.TypeFlags.Any | ts.TypeFlags.Unknown)
-      ) {
-        return false;
-      }
-
-      if (areMutuallyAssignable(contextualType, castType)) {
-        return true;
-      }
-
-      if (contextKind !== 'async-return') {
-        return false;
-      }
-
-      const awaitedContextualType = checker.getAwaitedType(contextualType);
-
-      return (
-        awaitedContextualType != null &&
-        areMutuallyAssignable(awaitedContextualType, castType)
-      );
-    }
-
     function reportDoubleAssertionIfUnnecessary(
       node: TSESTree.TSAsExpression | TSESTree.TSTypeAssertion,
       contextualType: ts.Type | undefined,
@@ -1410,13 +946,10 @@ export default createRule<Options, MessageIds>({
           : !typeAnnotationIsConstAssertion;
 
         if (typeIsUnchanged && wouldSameTypeBeInferred) {
-          if (
-            isContextSensitiveGenericCall(node.expression) &&
-            !hasEquivalentContextualType(node, castType)
-          ) {
+          if (isGenericCallWithInferredTypeArguments(node.expression)) {
             context.report({
               node,
-              messageId: 'assertionProvidesTypeArguments',
+              messageId: 'contextuallyInferredTypeArguments',
             });
           } else {
             context.report({
